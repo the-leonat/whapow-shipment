@@ -1,0 +1,28 @@
+tr.whapow-delivery-datetime th, tr.whapow-delivery-datetime td {
+     background: rgba(0, 247, 103, 0.1);
+}
+
+tr.whapow-delivery-datetime {
+}
+
+tr.whapow-delivery-datetime td {
+    /* color: black; */
+    /* border: 2px solid rgba(0, 247, 103, 1); */
+    /* text-decoration: underline; */
+
+    /* font-weight: bold; */
+}
+
+.whapow-delivery-datetime-wrapper {
+    border: 1px solid black;
+    padding: 20px;
+}
+
+tr.whapow-delivery-datetime td span {
+    color: rgb(0, 156, 65);
+    font-weight: bold;
+    padding-bottom: 10px;
+    display: inline-block;
+ 
+    /* text-decoration: underline; */
+}
