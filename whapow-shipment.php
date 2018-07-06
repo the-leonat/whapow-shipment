@@ -63,7 +63,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
         }
     }
 
-    function whapow_shipping_method_chosen()
+    function whapow_shipping_method_chosen($method)
     {
         if (get_active_shipping_method_id() === "whapow") {
             $options = get_shipping_method_options();
@@ -81,18 +81,19 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
                 try {
                     $delivery = $shipment->get_closest_delivery_interval(new DateTime("NOW"), 0);
                     WC()->session->set('whapow_shipment_delivery_date', $delivery->to_readable_string());
+                    WC()->session->set('whapow_shipment_provider_mail', $shipment->provider_mail);
 
                 } catch (Exception $e) {
                     WC()->session->__unset('whapow_shipment_delivery_date');
+                    WC()->session->__unset('whapow_shipment_provider_mail');
                 }
-                $delivery = $shipment->get_closest_delivery_interval(new DateTime("NOW"), 0);
-                WC()->session->set('whapow_shipment_delivery_date', $delivery->to_readable_string());
-                dlog(WC()->session->get('whapow_shipment_delivery_date'));
                 return;
             }
         }
 
         WC()->session->__unset('whapow_shipment_delivery_date');
+        WC()->session->__unset('whapow_shipment_provider_mail');
+
     }
 
     function whapow_load_plugin_css()
@@ -107,43 +108,84 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
     {
         if (WC()->session->__isset("whapow_shipment_delivery_date")) {
             $delivery_string = WC()->session->get("whapow_shipment_delivery_date");
+            $provider_mail = WC()->session->get("whapow_shipment_provider_mail");
             $order->update_meta_data('whapow_shipment_delivery_date', $delivery_string);
+            $order->update_meta_data('whapow_shipment_provider_mail', $provider_mail);
+
         }
     }
 
     function whapow_email_order_details_wrapper($order)
     {
         $data = $order->get_data();
-        $meta = $data["meta_data"][0]->get_data();
-        // echo var_dump($data);
 
-        if (isset($meta["value"])) {
-            echo "<div class='whapow-delivery-datetime-wrapper'>";
-            echo "<h2>Lieferung</h2>";
+        if (count($data["meta_data"] > 0)) {
+            $meta = $data["meta_data"];
+            foreach ($meta as $meta_object) {
+                $meta_object = $meta_object->get_data();
+                if ($meta_object["key"] === "whapow_shipment_delivery_date") {
+                    echo "<div class='whapow-delivery-datetime-wrapper'>";
+                    echo "<h2>Lieferung</h2>";
 
-            echo '<p class="whapow-delivery-datetime"><span>' . $meta["value"] . '.</span></p>';
-            echo "<p> Bitte sei um diese Zeit Zuhause damit du das Paket direkt in Empfang nehmen kannst.</p>";
-            echo "</div>";
-
+                    echo '<p class="whapow-delivery-datetime"><span>' . $meta_object["value"] . '.</span></p>';
+                    echo "<p> Bitte sei um diese Zeit Zuhause damit du das Paket direkt in Empfang nehmen kannst.</p>";
+                    echo "</div>";
+                    break;
+                }
+            }
         }
     }
 
     function whapow_order_details_after_order_table_items($order)
     {
         $data = $order->get_data();
-        $meta = $data["meta_data"][0]->get_data();
 
-        if (isset($meta["value"])) {
-            echo '<tr class="whapow-delivery-datetime"><td colspan="2"><b>Lieferung</b><br /><span>' . $meta["value"] . '.</span>';
-            echo "<br /> Bitte sei um diese Zeit Zuhause damit du das Paket direkt in Empfang nehmen kannst.";
-            echo '</td></tr>';
+        if (count($data["meta_data"] > 0)) {
+            $meta = $data["meta_data"];
+            foreach ($meta as $meta_object) {
+                $meta_object = $meta_object->get_data();
+                if ($meta_object["key"] === "whapow_shipment_delivery_date") {
+                    echo '<tr class="whapow-delivery-datetime"><td colspan="2"><b>Lieferung</b><br /><span>' . $meta_object["value"] . '.</span>';
+                    echo "<br /> Bitte sei um diese Zeit Zuhause damit du das Paket direkt in Empfang nehmen kannst.";
+                    echo '</td></tr>';
+                    break;
+                }
+            }
         }
+    }
+
+    function add_dropship_email($email_classes)
+    {
+
+        // include our custom email class
+        require_once 'includes/class-whapow-dropship-email.php';
+
+        // add the email class to the list of email classes that WooCommerce loads
+        $email_classes['Whapow_Dropship_Email'] = new Whapow_Dropship_Email();
+
+        return $email_classes;
+
+    }
+    add_filter('woocommerce_email_classes', 'add_dropship_email');
+
+    /**
+     * Auto Complete all WooCommerce orders.
+     */
+    add_action('woocommerce_thankyou', 'custom_woocommerce_auto_complete_order');
+    function custom_woocommerce_auto_complete_order($order_id)
+    {
+        if (!$order_id) {
+            return;
+        }
+
+        $order = wc_get_order($order_id);
+        $order->update_status('completed');
     }
 
     // load custom style sheet
     add_action('wp_enqueue_scripts', 'whapow_load_plugin_css');
 
-    // save delivery times in order 
+    // save delivery times in order
     add_action('woocommerce_checkout_create_order', 'before_checkout_create_order', 20, 2);
 
     // add delivery times to checkout page

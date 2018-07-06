@@ -26,25 +26,24 @@ class Whapow_Shipment
     {
 
         $datestring_array = explode("\n", $holidays_string);
-        $validation = true;
         foreach ($datestring_array as &$datestring) {
             //matches a date
 
             $datestring = trim($datestring);
 
-            $holiday_date = DateTime::createFromFormat('d.m.y', $datestring, new DateTimeZone('Europe/Berlin'));
-            $holiday_date = $holiday_date->setTime(0,0);
+            $holiday_date = DateTime::createFromFormat('d.m.Y', $datestring, new DateTimeZone('Europe/Berlin'));
+            
 
             if ($holiday_date === false) {
                 //dlog("Holiday Validation Failed with String: " . $datestring);
-                $validation = false;
-                break;
+                return false;
             } else {
+                $holiday_date = $holiday_date->setTime(0,0);
                 $this->holidays[] = $holiday_date;
             }
         }
 
-        return $validation;
+        return true;
     }
 
     public function delivery_periods_from_string($delivery_periods_string): bool
@@ -96,7 +95,7 @@ class Whapow_Shipment
     }
 
     public function get_closest_business_day($datetime) {
-        $counter == 0;
+        $counter = 0;
         $date = clone $datetime;
         while($this->is_holiday($date)) {
             
