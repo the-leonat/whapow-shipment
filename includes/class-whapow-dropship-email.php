@@ -36,8 +36,8 @@ class Whapow_Dropship_Email extends WC_Email
         $this->subject = 'New Order';
 
         // these define the locations of the templates that this email should use, we'll just use the new order template since this email is similar
-        $this->template_html = '../../dropship-email/templates/dropship-email.php';
-        $this->template_plain = '../../dropship-email/templates/dropship-email.php';
+        $this->template_html = '../../whapow-shipment/templates/dropship-email.php';
+        $this->template_plain = '../../whapow-shipment/templates/dropship-email.php';
 
         // Trigger on new paid orders
         add_action('woocommerce_order_status_completed_notification', array($this, 'trigger'));
@@ -73,9 +73,9 @@ class Whapow_Dropship_Email extends WC_Email
         // setup order object
         $this->order = new WC_Order($order_id);
 
-        $data = $order->get_data();
+        $data = $this->order->get_data();
 
-        $provider_mail = "";
+
 
         if (count($data["meta_data"] > 0)) {
             $meta = $data["meta_data"];

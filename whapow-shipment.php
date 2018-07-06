@@ -73,6 +73,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
             $delivery_periods_string = $options['delivery_periods'];
             $order_periods_string = $options['order_periods'];
             $holidays_string = $options['holidays'];
+            $provider_mail = $options['provider_mail'];
 
             //build objects
             if ($shipment->delivery_periods_from_string($delivery_periods_string) &&
@@ -81,7 +82,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
                 try {
                     $delivery = $shipment->get_closest_delivery_interval(new DateTime("NOW"), 0);
                     WC()->session->set('whapow_shipment_delivery_date', $delivery->to_readable_string());
-                    WC()->session->set('whapow_shipment_provider_mail', $shipment->provider_mail);
+                    WC()->session->set('whapow_shipment_provider_mail', $provider_mail);
 
                 } catch (Exception $e) {
                     WC()->session->__unset('whapow_shipment_delivery_date');

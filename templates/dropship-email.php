@@ -78,6 +78,7 @@
 <h2>an folgende Adresse senden</h2>
 <p><?php echo $order->get_formatted_shipping_address(); ?></p>
 <p><?php echo $order->get_billing_email(); ?></p>
+<p><?php echo $order->get_billing_phone(); ?></p>
 
 <?php
    /**
