@@ -54,15 +54,6 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
         return $chosen_rate->method_id;
     }
 
-    function whapow_estimated_delivery_checkout_page()
-    {
-        if (WC()->session->__isset("whapow_shipment_delivery_date")) {
-            echo '<tr class="whapow-delivery-datetime"><td colspan="2"><b>Lieferung</b><br /><span>' . WC()->session->get('whapow_shipment_delivery_date') . '.</span>';
-            echo "<br /> Bitte sei um diese Zeit Zuhause damit du das Paket direkt in Empfang nehmen kannst. <a href='//faq/#shipping'>Warum?</a>";
-            echo '</td></tr>';
-        }
-    }
-
     function whapow_shipping_method_chosen($method)
     {
         if (get_active_shipping_method_id() === "whapow") {
@@ -116,6 +107,17 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
         }
     }
 
+    function whapow_estimated_delivery_checkout_page()
+    {
+
+        if (WC()->session->__isset("whapow_shipment_delivery_date")) {
+            echo '<tr class="whapow-delivery-datetime"><td colspan="2"><b>Lieferung</b><br /><span>' . WC()->session->get('whapow_shipment_delivery_date') . '.</span>';
+            echo "<br />Bitte sei im oben genannten Zeitfenster zuhause. <a target='_blank' href='https://whapow.de/faq/#shipping'>Warum?</a>";
+            echo "<br />Mit hinterlegter Mobilnummer SMS-Ankündigung <b>45 Minuten vorher</b>.";
+            echo '</td></tr>';
+        }
+    }
+
     function whapow_email_order_details_wrapper($order)
     {
         $data = $order->get_data();
@@ -127,9 +129,9 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
                 if ($meta_object["key"] === "whapow_shipment_delivery_date") {
                     echo "<div class='whapow-delivery-datetime-wrapper'>";
                     echo "<h2>Lieferung</h2>";
-
-                    echo '<p class="whapow-delivery-datetime"><span>' . $meta_object["value"] . '.</span></p>';
-                    echo "<p> Bitte sei um diese Zeit Zuhause damit du das Paket direkt in Empfang nehmen kannst.</p>";
+                    echo '<p class="whapow-delivery-datetime">Übergabe am <span style="color:#009c41"><b>' . $meta_object["value"] . '</b></span>.</p>';
+                    echo "<p>WHAPOW wird im Mehrweg-System direkt und persönlich übergeben ohne Styroporkiste und muss sofort wieder in die Tiefkühltruhe (kein Abstellservice möglich!).</p>";
+                    echo "<p>Mit hinterlegter Mobilnummer <b>SMS-Ankündigung 45 Minuten vorher</b>. Bitte sei im oben genannten Zeitfenster zuhause.</p>";
                     echo "</div>";
                     break;
                 }
@@ -137,7 +139,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
         }
     }
 
-    function whapow_order_details_after_order_table_items($order)
+    function whapow_order_details_before_order_table_items($order)
     {
         $data = $order->get_data();
 
@@ -146,8 +148,9 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
             foreach ($meta as $meta_object) {
                 $meta_object = $meta_object->get_data();
                 if ($meta_object["key"] === "whapow_shipment_delivery_date") {
-                    echo '<tr class="whapow-delivery-datetime"><td colspan="2"><b>Lieferung</b><br /><span>' . $meta_object["value"] . '.</span>';
-                    echo "<br /> Bitte sei um diese Zeit Zuhause damit du das Paket direkt in Empfang nehmen kannst.";
+                    echo '<tr class="whapow-delivery-datetime"><td colspan="2"><b>Lieferung</b><br />Übergabe am <span style="color:#009c41"><b>' . $meta_object["value"] . '</b></span>.';
+                    echo "<br />WHAPOW wird im Mehrweg-System direkt und persönlich übergeben ohne Styroporkiste und muss sofort wieder in die Tiefkühltruhe (kein Abstellservice möglich!).";
+                    echo "<br />Mit hinterlegter Mobilnummer <b>SMS-Ankündigung 45 Minuten vorher</b>. Bitte sei im oben genannten Zeitfenster zuhause.";
                     echo '</td></tr>';
                     break;
                 }
@@ -159,10 +162,10 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
     {
 
         // include our custom email class
-        require_once 'includes/class-whapow-dropship-email.php';
+        include 'includes/class-whapow-dropship-email.php';
 
         // add the email class to the list of email classes that WooCommerce loads
-        $email_classes['Whapow_Dropship_Email'] = new Whapow_Dropship_Email();
+        $email_classes['whapow_shipment_notification'] = new Whapow_Dropship_Email();
 
         return $email_classes;
 
@@ -183,6 +186,57 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
         $order->update_status('completed');
     }
 
+    function whapow_email_attachment($attach_documents)
+    {
+        //var_dump($pdf_path);
+        $attach_documents["packing-slip"][] = "whapow_shipment_notification";
+        // $attach_documents["packing-slip"][] = "customer_completed_order";
+
+        //var_dump($attach_documents);
+
+        return $attach_documents;
+    }
+
+    function whapow_test_attachments($attachments, $email_id, $order) {
+        dlog("gotcha");
+        dlog($email_id);
+        dlog(implode(", ", $attachments));
+
+        return $attachments;
+    }
+
+    add_filter( 'woocommerce_email_attachments', "whapow_test_attachments", 100, 3 );
+
+
+    add_action('woocommerce_checkout_process', 'whapow_shipping_order_validation', 20);
+    function whapow_shipping_order_validation()
+    {
+        global $woocommerce;
+        $items = $woocommerce->cart->get_cart();
+
+        foreach (WC()->cart->get_cart() as $cart_item_key => $values) {
+            $p = wc_get_product($values["product_id"]);
+
+            if ($p->get_sku() === "whapow_box_6") {
+                if (!WC()->session->__isset("whapow_shipment_delivery_date")) {
+                    wc_add_notice(__("Die 6er-Box ist in deiner Region leider nicht verfügbar.", "whapow"), 'error');
+                }
+            }
+        }
+
+    }
+
+    function whapow_test_attachment_creation($order, $email_id, $document_type) {
+        dlog($email_id);
+        dlog($document_type);
+    } 
+
+    add_action( 'wpo_wcpdf_before_attachment_creation', 'whapow_test_attachment_creation', 99,3);
+
+    add_filter("wpo_wcpdf_attach_documents", "whapow_email_attachment", 99, 1);
+
+    //add_filter('wpo_wcpdf_attach_documents', "whapow_wcpdf_attach_documents");
+
     // load custom style sheet
     add_action('wp_enqueue_scripts', 'whapow_load_plugin_css');
 
@@ -190,10 +244,10 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
     add_action('woocommerce_checkout_create_order', 'before_checkout_create_order', 20, 2);
 
     // add delivery times to checkout page
-    add_action('woocommerce_order_details_after_order_table_items', 'whapow_order_details_after_order_table_items', 10, 10);
+    add_action('woocommerce_order_details_before_order_table_items', 'whapow_order_details_before_order_table_items', 10, 10);
 
     // add delivery times to email template
-    add_action('woocommerce_email_after_order_table', 'whapow_email_order_details_wrapper', 10, 10);
+    add_action('woocommerce_email_before_order_table', 'whapow_email_order_details_wrapper', 10, 10);
 
     // push the correct deliverytimes into sessionstorage
     add_action('woocommerce_shipping_method_chosen', 'whapow_shipping_method_chosen', 10, 1);

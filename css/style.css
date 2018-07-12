@@ -19,7 +19,7 @@ tr.whapow-delivery-datetime td {
 }
 
 tr.whapow-delivery-datetime td span {
-    color: rgb(0, 156, 65);
+    color: #009c41;
     font-weight: bold;
     padding-bottom: 10px;
     display: inline-block;

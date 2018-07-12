@@ -23,10 +23,12 @@ class Whapow_Dropship_Email extends WC_Email
     {
 
         // set ID, this simply needs to be a unique name
-        $this->id = 'wc_dropship_notification';
+        $this->id = 'whapow_shipment_notification';
+        $this->customer_email = true;
+
 
         // this is the title in WooCommerce Email settings
-        $this->title = 'Dropship Notification';
+        $this->title = 'Whapow Shipping Notification';
 
         // this is the description in WooCommerce email settings
         $this->description = 'Notify Dropshipper when Order changed to Processing';
@@ -39,12 +41,7 @@ class Whapow_Dropship_Email extends WC_Email
         $this->template_html = '../../whapow-shipment/templates/dropship-email.php';
         $this->template_plain = '../../whapow-shipment/templates/dropship-email.php';
 
-        // Trigger on new paid orders
-        add_action('woocommerce_order_status_completed_notification', array($this, 'trigger'));
         //add_action( 'woocommerce_order_status_failed_to_processing_notification',  array( $this, 'trigger' ) );
-
-        // Call parent constructor to load any other defaults not explicity defined here
-        parent::__construct();
 
         // this sets the recipient to the settings defined below in init_form_fields()
         $this->recipient = $this->get_option('recipient');
@@ -54,6 +51,12 @@ class Whapow_Dropship_Email extends WC_Email
             $this->recipient = get_option('admin_email');
         }
 
+        // Trigger on new paid orders
+		add_action( 'woocommerce_order_status_completed_notification', array( $this, 'trigger' ), 10, 2 );
+
+        // Call parent constructor to load any other defaults not explicity defined here
+        parent::__construct();
+
     }
 
     /**
@@ -62,20 +65,20 @@ class Whapow_Dropship_Email extends WC_Email
      * @since 0.1
      * @param int $order_id
      */
-    public function trigger($order_id)
+    public function trigger($order_id, $order = false)
     {
 
-        // bail if no order ID is present
-        if (!$order_id) {
-            return;
-        }
+        if ( $order_id && ! is_a( $order, 'WC_Order' ) ) {
+			$order = wc_get_order( $order_id );
+		}
 
-        // setup order object
-        $this->order = new WC_Order($order_id);
+		if ( is_a( $order, 'WC_Order' ) ) {
+			$this->order                         = $order;
+        }
+        
+        $this->object = $this->order;
 
         $data = $this->order->get_data();
-
-
 
         if (count($data["meta_data"] > 0)) {
             $meta = $data["meta_data"];
@@ -92,8 +95,11 @@ class Whapow_Dropship_Email extends WC_Email
             return;
         }
 
+        //error_log($this->get_attachments());
+
         // woohoo, send the email!
         $this->send($this->get_recipient(), $this->get_subject(), $this->get_content(), $this->get_headers(), $this->get_attachments());
+
     }
 
     /**
@@ -107,7 +113,7 @@ class Whapow_Dropship_Email extends WC_Email
         return wc_get_template_html($this->template_html, array(
             'order' => $this->order,
             'email_heading' => $this->get_heading(),
-            'sent_to_admin' => true,
+            'sent_to_admin' => false,
             'plain_text' => false,
             'email' => $this,
         ));
@@ -124,7 +130,7 @@ class Whapow_Dropship_Email extends WC_Email
         return wc_get_template_html($this->template_plain, array(
             'order' => $this->order,
             'email_heading' => $this->get_heading(),
-            'sent_to_admin' => true,
+            'sent_to_admin' => false,
             'plain_text' => false,
             'email' => $this,
         ));
@@ -161,17 +167,14 @@ class Whapow_Dropship_Email extends WC_Email
                 'default' => '',
             ),
             'email_type' => array(
-                'title' => 'Email type',
-                'type' => 'select',
-                'description' => 'Choose which format of email to send.',
-                'default' => 'html',
-                'class' => 'email_type',
-                'options' => array(
-                    'plain' => 'Plain text',
-                    'html' => 'HTML', 'woocommerce',
-                    'multipart' => 'Multipart', 'woocommerce',
-                ),
-            ),
+				'title'         => __( 'Email type', 'woocommerce' ),
+				'type'          => 'select',
+				'description'   => __( 'Choose which format of email to send.', 'woocommerce' ),
+				'default'       => 'html',
+				'class'         => 'email_type wc-enhanced-select',
+				'options'       => $this->get_email_type_options(),
+				'desc_tip'      => true,
+			),
         );
     }
 } // end \WC_Expedited_Order_Email class

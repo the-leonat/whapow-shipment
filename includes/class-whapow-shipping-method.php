@@ -57,9 +57,7 @@ class Whapow_Shipping_Method extends WC_Shipping_Method
             $this->shipment->order_periods_from_string($order_periods_string &&
                 $this->shipment->holidays_from_string($holidays_string))) {
 
-            // for($i = 0; $i < 10; $i++) {
 
-            // }
 
         }
 
@@ -213,6 +211,8 @@ class Whapow_Shipping_Method extends WC_Shipping_Method
         if ($total >= $this->min_amount) {
             $cost = 0;   
         }
+
+        //$title = $cost === 0 ? "Kostenlose Lieferung" : $this->title;
 
        
 

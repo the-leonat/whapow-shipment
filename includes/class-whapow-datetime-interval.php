@@ -42,7 +42,7 @@ class Whapow_Datetime_Interval
     {
         $weekday = Whapow_Date_Util::get_weekday($this->datetime_from);
         $wname = $this->weekday_names[$weekday];
-        return $wname . ", der " . $this->datetime_from->format('d.m') . " zwischen " . $this->datetime_from->format('H:i') . " - " . $this->datetime_to->format('H:i') . " Uhr";
+        return $wname . ", " . $this->datetime_from->format('d.m.') . " zwischen " . $this->datetime_from->format('H:i') . " - " . $this->datetime_to->format('H:i') . " Uhr";
     }
 
 }
