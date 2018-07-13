@@ -5,7 +5,7 @@
  * Description: Mehrwegversand Integration für myEnso
  * Author: Leonard Puhl
  * Author URI: http://leonat.de
- * Version: 0.2
+ * Version: 0.3
  *
  * License: GNU General Public License v3.0
  * License URI: http://www.gnu.org/licenses/gpl-3.0.html
