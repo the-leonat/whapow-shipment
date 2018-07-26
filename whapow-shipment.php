@@ -5,7 +5,7 @@
  * Description: Mehrwegversand Integration für myEnso
  * Author: Leonard Puhl
  * Author URI: http://leonat.de
- * Version: 0.3
+ * Version: 0.4
  *
  * License: GNU General Public License v3.0
  * License URI: http://www.gnu.org/licenses/gpl-3.0.html
@@ -54,7 +54,7 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
         return $chosen_rate->method_id;
     }
 
-    function whapow_shipping_method_chosen($method)
+    function get_delivery_time_from_options()
     {
         if (get_active_shipping_method_id() === "whapow") {
             $options = get_shipping_method_options();
@@ -64,28 +64,36 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
             $delivery_periods_string = $options['delivery_periods'];
             $order_periods_string = $options['order_periods'];
             $holidays_string = $options['holidays'];
-            $provider_mail = $options['provider_mail'];
 
             //build objects
             if ($shipment->delivery_periods_from_string($delivery_periods_string) &&
                 $shipment->order_periods_from_string($order_periods_string) &&
                 $shipment->holidays_from_string($holidays_string)) {
                 try {
-                    $delivery = $shipment->get_closest_delivery_interval(new DateTime("NOW"), 0);
-                    WC()->session->set('whapow_shipment_delivery_date', $delivery->to_readable_string());
-                    WC()->session->set('whapow_shipment_provider_mail', $provider_mail);
-
+                    $delivery  = $shipment->get_closest_delivery_interval(new DateTime("NOW"), 0);
+                    return $delivery->to_readable_string();
                 } catch (Exception $e) {
-                    WC()->session->__unset('whapow_shipment_delivery_date');
-                    WC()->session->__unset('whapow_shipment_provider_mail');
+                    return null;
                 }
-                return;
+                return null;
             }
         }
+        return null;
+    }
 
-        WC()->session->__unset('whapow_shipment_delivery_date');
-        WC()->session->__unset('whapow_shipment_provider_mail');
+    function whapow_shipping_method_chosen($method)
+    {
+        $deliveryString = get_delivery_time_from_options();
 
+        if ($deliveryString !== null) {
+            $options = get_shipping_method_options();
+            $provider_mail = $options['provider_mail'];
+            WC()->session->set('whapow_shipment_delivery_date', $deliveryString);
+            WC()->session->set('whapow_shipment_provider_mail', $provider_mail);
+        } else {
+            WC()->session->__unset('whapow_shipment_delivery_date');
+            WC()->session->__unset('whapow_shipment_provider_mail');
+        }
     }
 
     function whapow_load_plugin_css()
@@ -109,7 +117,6 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
 
     function whapow_estimated_delivery_checkout_page()
     {
-
         if (WC()->session->__isset("whapow_shipment_delivery_date")) {
             echo '<tr class="whapow-delivery-datetime"><td colspan="2"><b>Lieferung</b><br /><span>' . WC()->session->get('whapow_shipment_delivery_date') . '.</span>';
             echo "<br />Bitte sei im oben genannten Zeitfenster zuhause. <a target='_blank' href='https://whapow.de/faq/#shipping'>Warum?</a>";
@@ -197,7 +204,8 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
         return $attach_documents;
     }
 
-    function whapow_test_attachments($attachments, $email_id, $order) {
+    function whapow_test_attachments($attachments, $email_id, $order)
+    {
         dlog("gotcha");
         dlog($email_id);
         dlog(implode(", ", $attachments));
@@ -205,14 +213,15 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
         return $attachments;
     }
 
-    add_filter( 'woocommerce_email_attachments', "whapow_test_attachments", 100, 3 );
-
-
+    add_filter('woocommerce_email_attachments', "whapow_test_attachments", 100, 3);
     add_action('woocommerce_checkout_process', 'whapow_shipping_order_validation', 20);
+
     function whapow_shipping_order_validation()
     {
         global $woocommerce;
         $items = $woocommerce->cart->get_cart();
+
+        // check if 6er box is only selected for specified plz-zones
 
         foreach (WC()->cart->get_cart() as $cart_item_key => $values) {
             $p = wc_get_product($values["product_id"]);
@@ -224,14 +233,31 @@ if (in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_
             }
         }
 
+        // check if delivery time changed and notifiy user
+        if (WC()->session->__isset("whapow_shipment_delivery_date")) {
+            $deliveryStringOld = WC()->session->get('whapow_shipment_delivery_date');
+            $deliveryStringNew = get_delivery_time_from_options();
+
+            if ($deliveryStringOld !== $deliveryStringNew) {
+                WC()->session->set('whapow_shipment_delivery_date', $deliveryStringNew);
+                wc_add_notice(__("Die Lieferzeit hat sich über die Zeit deiner Bestellung verändert. Bitte schau nach ob dir das immer noch passt.", "whapow"), 'error');
+            }
+        }
     }
 
-    function whapow_test_attachment_creation($order, $email_id, $document_type) {
+    function whapow_test_attachment_creation($order, $email_id, $document_type)
+    {
         dlog($email_id);
         dlog($document_type);
-    } 
+    }
 
-    add_action( 'wpo_wcpdf_before_attachment_creation', 'whapow_test_attachment_creation', 99,3);
+    function whapow_enqueue_script() {   
+        wp_enqueue_script( 'whapow_shipment_script', plugin_dir_url( __FILE__ ) . 'js/whapow-shipment.js', array( 'jquery' )  );
+    }
+
+    add_action('wp_enqueue_scripts', 'whapow_enqueue_script');
+
+    add_action('wpo_wcpdf_before_attachment_creation', 'whapow_test_attachment_creation', 99, 3);
 
     add_filter("wpo_wcpdf_attach_documents", "whapow_email_attachment", 99, 1);
 
